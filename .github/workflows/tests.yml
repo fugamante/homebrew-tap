@@ -97,6 +97,7 @@ jobs:
         env:
           EXPECTED_ARCH: ${{ matrix.arch }}
           EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+          HOMEBREW_DEVELOPER: 1
           TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
         run: |
           tap_path="$(brew --repository "$TAP_NAME")"
@@ -117,6 +118,7 @@ jobs:
         env:
           EXPECTED_ARCH: ${{ matrix.arch }}
           EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+          HOMEBREW_DEVELOPER: 1
           TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
         run: |
           tap_path="$(brew --repository "$TAP_NAME")"
