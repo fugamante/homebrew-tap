@@ -1,0 +1,120 @@
+# Read-only bootstrap for Homebrew bottle publication review.
+name: brew pr-pull preflight
+
+on:
+  workflow_dispatch:
+    inputs:
+      pull_request:
+        description: Reviewed pull request number
+        required: true
+      head_sha:
+        description: Reviewed pull request head commit SHA
+        required: true
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash -xeuo pipefail {0}
+
+jobs:
+  pr-pull:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@a657b8b0cd35d0f65cce41fce9b24cf054b49869 # 2026.08.24.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Assert open pull request and reviewed head
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ inputs.head_sha }}
+          PULL_REQUEST: ${{ inputs.pull_request }}
+        run: |
+          [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]
+          actual="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PULL_REQUEST")"
+          [[ "$(jq -r .state <<<"$actual")" == "open" ]]
+          [[ "$(jq -r .merged <<<"$actual")" == "false" ]]
+          [[ "$(jq -r .head.sha <<<"$actual")" == "$HEAD_SHA" ]]
+
+      - name: Pull reviewed bottles without uploading
+        id: pr-pull
+        env:
+          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ inputs.head_sha }}
+          PULL_REQUEST: ${{ inputs.pull_request }}
+        run: |
+          brew pr-pull \
+            --debug \
+            --clean \
+            --no-upload \
+            --retain-bottle-dir \
+            --tap="$GITHUB_REPOSITORY" \
+            --head-sha="$HEAD_SHA" \
+            "$PULL_REQUEST"
+
+      - name: Inspect exact bottle inventory
+        env:
+          BOTTLE_PATH: ${{ steps.pr-pull.outputs.bottle_path }}
+          HEAD_SHA: ${{ inputs.head_sha }}
+        run: |
+          [[ -d "$BOTTLE_PATH" ]]
+          [[ "$(find "$BOTTLE_PATH" -maxdepth 1 -type f -name 'xshelf--*.bottle.json' | wc -l)" -eq 2 ]]
+          [[ "$(find "$BOTTLE_PATH" -maxdepth 1 -type f -name 'xshelf--*.bottle*.tar.gz' | wc -l)" -eq 2 ]]
+          [[ "$(find "$BOTTLE_PATH" -maxdepth 1 -type f -name 'bottle-proof.*.json' | wc -l)" -eq 2 ]]
+          python3 - "$BOTTLE_PATH" "$HEAD_SHA" <<'PY'
+          import json
+          import hashlib
+          import pathlib
+          import sys
+
+          bottle_path = pathlib.Path(sys.argv[1])
+          expected_head = sys.argv[2]
+          expected_tags = {"arm64_sequoia": "arm64", "sequoia": "x86_64"}
+          found_tags = {}
+          bottle_hashes = {}
+          for path in sorted(bottle_path.glob("xshelf--*.bottle.json")):
+              document = json.loads(path.read_text())
+              if len(document) != 1:
+                  raise SystemExit(f"unexpected formula inventory in {path}")
+              record = next(iter(document.values()))
+              if record["formula"]["tap_git_revision"] != expected_head:
+                  raise SystemExit(f"head mismatch in {path}")
+              tags = record["bottle"]["tags"]
+              if len(tags) != 1:
+                  raise SystemExit(f"unexpected platform inventory in {path}")
+              tag, tag_record = next(iter(tags.items()))
+              found_tags[tag] = tag_record["tab"]["arch"]
+              archive = bottle_path / tag_record["local_filename"]
+              if not archive.is_file():
+                  raise SystemExit(f"missing bottle archive: {archive}")
+              actual_hash = hashlib.sha256(archive.read_bytes()).hexdigest()
+              if actual_hash != tag_record["sha256"]:
+                  raise SystemExit(f"bottle checksum mismatch: {archive}")
+              bottle_hashes[tag] = actual_hash
+          if found_tags != expected_tags:
+              raise SystemExit(f"unexpected bottle tags: {found_tags}")
+
+          proofs = [json.loads(path.read_text()) for path in sorted(bottle_path.glob("bottle-proof.*.json"))]
+          proof_inventory = {proof["platform_tag"]: proof["architecture"] for proof in proofs}
+          if proof_inventory != expected_tags:
+              raise SystemExit(f"unexpected proof inventory: {proof_inventory}")
+          if any(proof["reviewed_head"] != expected_head for proof in proofs):
+              raise SystemExit("proof head mismatch")
+          for proof in proofs:
+              tag = proof["platform_tag"]
+              if proof["bottle_sha256"] != bottle_hashes[tag]:
+                  raise SystemExit(f"proof checksum mismatch: {tag}")
+              if not proof["hardened_runtime"] or not proof["secure_timestamp"]:
+                  raise SystemExit(f"signature invariant missing: {tag}")
+              if proof["notarization_status"] != "Accepted":
+                  raise SystemExit(f"notarization evidence rejected: {tag}")
+          PY
+          find "$BOTTLE_PATH" -maxdepth 1 -type f -print0 | sort -z | xargs -0 shasum -a 256
