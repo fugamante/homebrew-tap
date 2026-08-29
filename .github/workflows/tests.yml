@@ -100,7 +100,7 @@ jobs:
           TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
         run: |
           tap_path="$(brew --repository "$TAP_NAME")"
-          bottle="$(find "$PWD" -maxdepth 1 -type f -name 'xshelf--*.bottle*.tar.gz' -print -quit)"
+          bottle="$(find . -maxdepth 1 -type f -name 'xshelf--*.bottle*.tar.gz' -print -quit)"
           alt_brew="$RUNNER_TEMP/xshelf-pour-brew"
           git clone --quiet --no-hardlinks "$(brew --repository)" "$alt_brew"
           [[ "$alt_brew" != "$(brew --prefix)" ]]
@@ -120,7 +120,7 @@ jobs:
           TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
         run: |
           tap_path="$(brew --repository "$TAP_NAME")"
-          bottle="$(find "$PWD" -maxdepth 1 -type f -name 'xshelf--*.bottle*.tar.gz' -print -quit)"
+          bottle="$(find . -maxdepth 1 -type f -name 'xshelf--*.bottle*.tar.gz' -print -quit)"
           [[ -n "$bottle" ]]
 
           brew uninstall --force xshelf || true
