@@ -157,6 +157,39 @@ jobs:
           brew test xshelf
           brew uninstall xshelf
 
+      - name: Upgrade stable archive install to reviewed bottle
+        env:
+          BASE_HEAD: e088b6dd3cc6346865f918c427482337bde9dd7e
+          EXPECTED_ARCH: ${{ matrix.arch }}
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+          HOMEBREW_DEVELOPER: 1
+          TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
+        run: |
+          tap_path="$(brew --repository "$TAP_NAME")"
+          bottle="$(find . -maxdepth 1 -type f -name 'xshelf--*.bottle*.tar.gz' -print -quit)"
+          upgrade_brew="$RUNNER_TEMP/xshelf-upgrade-brew"
+          upgrade_tap="$upgrade_brew/Library/Taps/fugamante/homebrew-tap"
+          git clone --quiet --no-hardlinks "$(brew --repository)" "$upgrade_brew"
+          mkdir -p "$(dirname "$upgrade_tap")"
+          git clone --quiet "$tap_path" "$upgrade_tap"
+
+          git -C "$upgrade_tap" checkout --quiet --detach "$BASE_HEAD"
+          HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 \
+            "$upgrade_brew/bin/brew" install fugamante/tap/xshelf
+          [[ "$("$upgrade_brew/bin/brew" list --versions xshelf)" == "xshelf 2026.08.29" ]]
+
+          git -C "$upgrade_tap" checkout --quiet --detach "$EXPECTED_HEAD"
+          HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 \
+            "$upgrade_brew/bin/brew" upgrade "$bottle"
+          [[ "$("$upgrade_brew/bin/brew" list --versions xshelf)" == "xshelf 2026.08.29_1" ]]
+          python3 "$tap_path/scripts/verify_bottle.py" \
+            --expected-arch "$EXPECTED_ARCH" \
+            --expected-head "$EXPECTED_HEAD" \
+            --installed-binary "$("$upgrade_brew/bin/brew" --prefix xshelf)/bin/xshelf"
+          HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 "$upgrade_brew/bin/brew" test xshelf
+          HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 "$upgrade_brew/bin/brew" uninstall xshelf
+          [[ ! -e "$upgrade_brew/Cellar/xshelf" ]]
+
       - name: Upload reviewed bottle inventory
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
