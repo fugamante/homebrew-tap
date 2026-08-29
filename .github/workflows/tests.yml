@@ -57,12 +57,27 @@ jobs:
           EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
           TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
         run: |
-          [[ "$(uname -m)" == "$EXPECTED_ARCH" ]]
-          [[ "$(sysctl -in sysctl.proc_translated 2>/dev/null || echo 0)" == 0 ]]
+          actual_arch="$(uname -m)"
+          if [[ "$actual_arch" != "$EXPECTED_ARCH" ]]; then
+            echo "unexpected runner architecture: $actual_arch" >&2
+            exit 1
+          fi
+          translated="$(sysctl -in sysctl.proc_translated 2>/dev/null || true)"
+          if [[ -n "$translated" && "$translated" != 0 ]]; then
+            echo "translated execution is not native: $translated" >&2
+            exit 1
+          fi
+          translated="${translated:-0}"
           tap_path="$(brew --repository "$TAP_NAME")"
           git -C "$tap_path" cat-file -e "$EXPECTED_HEAD^{commit}"
           git -C "$tap_path" checkout --detach "$EXPECTED_HEAD"
-          [[ "$(git -C "$tap_path" rev-parse HEAD)" == "$EXPECTED_HEAD" ]]
+          actual_head="$(git -C "$tap_path" rev-parse HEAD)"
+          if [[ "$actual_head" != "$EXPECTED_HEAD" ]]; then
+            echo "unexpected tap head: $actual_head" >&2
+            exit 1
+          fi
+          printf 'runner_arch=%s\ntranslated=%s\nreviewed_head=%s\n' \
+            "$actual_arch" "$translated" "$actual_head"
 
       - run: brew test-bot --only-cleanup-before
       - run: brew test-bot --only-setup
