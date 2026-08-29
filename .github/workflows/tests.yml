@@ -1,0 +1,201 @@
+# Generated from Homebrew's tap-new bottle workflow and tightened for XSHELF.
+name: bottle CI
+
+on:
+  pull_request:
+    paths:
+      - Formula/xshelf.rb
+      - scripts/verify_bottle.py
+
+permissions: {}
+
+concurrency:
+  group: bottle-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash -xeuo pipefail {0}
+
+jobs:
+  bottle:
+    name: bottle (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            arch: arm64
+          - os: macos-15-intel
+            arch: x86_64
+    runs-on: ${{ matrix.os }}
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+      packages: read
+      pull-requests: read
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@a657b8b0cd35d0f65cce41fce9b24cf054b49869 # 2026.08.24.1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache Homebrew Bundler RubyGems
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.set-up-homebrew.outputs.gems-path }}
+          key: ${{ matrix.os }}-rubygems-${{ steps.set-up-homebrew.outputs.gems-hash }}
+          restore-keys: ${{ matrix.os }}-rubygems-
+
+      - name: Assert native architecture and exact pull request head
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+          TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
+        run: |
+          actual_arch="$(uname -m)"
+          if [[ "$actual_arch" != "$EXPECTED_ARCH" ]]; then
+            echo "unexpected runner architecture: $actual_arch" >&2
+            exit 1
+          fi
+          translated="$(sysctl -in sysctl.proc_translated 2>/dev/null || true)"
+          if [[ -n "$translated" && "$translated" != 0 ]]; then
+            echo "translated execution is not native: $translated" >&2
+            exit 1
+          fi
+          translated="${translated:-0}"
+          tap_path="$(brew --repository "$TAP_NAME")"
+          git -C "$tap_path" cat-file -e "$EXPECTED_HEAD^{commit}"
+          git -C "$tap_path" checkout --detach "$EXPECTED_HEAD"
+          actual_head="$(git -C "$tap_path" rev-parse HEAD)"
+          if [[ "$actual_head" != "$EXPECTED_HEAD" ]]; then
+            echo "unexpected tap head: $actual_head" >&2
+            exit 1
+          fi
+          printf 'runner_arch=%s\ntranslated=%s\nreviewed_head=%s\n' \
+            "$actual_arch" "$translated" "$actual_head"
+
+      - run: brew test-bot --only-cleanup-before
+      - run: brew test-bot --only-setup
+      - run: brew test-bot --only-tap-syntax
+
+      - name: Encode registry token
+        id: registry-token
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          encoded="$(printf '%s' "$TOKEN" | base64 | tr -d '\n')"
+          echo "::add-mask::$encoded"
+          echo "value=$encoded" >> "$GITHUB_OUTPUT"
+
+      - name: Build and bottle
+        env:
+          HOMEBREW_DOCKER_REGISTRY_TOKEN: ${{ steps.registry-token.outputs.value }}
+        run: brew test-bot --only-formulae --root-url=https://ghcr.io/v2/fugamante/tap
+
+      - name: Verify bottle provenance and packaged signature
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+          TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
+        run: |
+          tap_path="$(brew --repository "$TAP_NAME")"
+          python3 "$tap_path/scripts/verify_bottle.py" \
+            --expected-arch "$EXPECTED_ARCH" \
+            --expected-head "$EXPECTED_HEAD"
+
+      - name: Pour into an alternate Homebrew Cellar
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+          HOMEBREW_DEVELOPER: 1
+          TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
+        run: |
+          tap_path="$(brew --repository "$TAP_NAME")"
+          bottle="$(find . -maxdepth 1 -type f -name 'xshelf--*.bottle*.tar.gz' -print -quit)"
+          alt_brew="$RUNNER_TEMP/xshelf-pour-brew"
+          git clone --quiet --no-hardlinks "$(brew --repository)" "$alt_brew"
+          [[ "$alt_brew" != "$(brew --prefix)" ]]
+          HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 "$alt_brew/bin/brew" install "$bottle"
+          python3 "$tap_path/scripts/verify_bottle.py" \
+            --expected-arch "$EXPECTED_ARCH" \
+            --expected-head "$EXPECTED_HEAD" \
+            --installed-binary "$("$alt_brew/bin/brew" --prefix xshelf)/bin/xshelf"
+          HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 "$alt_brew/bin/brew" test xshelf
+          HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 "$alt_brew/bin/brew" uninstall xshelf
+          [[ ! -e "$alt_brew/Cellar/xshelf" ]]
+
+      - name: Pour, test, uninstall, and prove archive fallback
+        env:
+          EXPECTED_ARCH: ${{ matrix.arch }}
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+          HOMEBREW_DEVELOPER: 1
+          TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
+        run: |
+          tap_path="$(brew --repository "$TAP_NAME")"
+          bottle="$(find . -maxdepth 1 -type f -name 'xshelf--*.bottle*.tar.gz' -print -quit)"
+          [[ -n "$bottle" ]]
+
+          brew uninstall --force xshelf || true
+          brew install "$bottle"
+          python3 "$tap_path/scripts/verify_bottle.py" \
+            --expected-arch "$EXPECTED_ARCH" \
+            --expected-head "$EXPECTED_HEAD" \
+            --installed-binary "$(brew --prefix xshelf)/bin/xshelf"
+          brew test xshelf
+          brew uninstall xshelf
+
+          brew install --build-from-source "$TAP_NAME/xshelf"
+          python3 "$tap_path/scripts/verify_bottle.py" \
+            --expected-arch "$EXPECTED_ARCH" \
+            --expected-head "$EXPECTED_HEAD" \
+            --installed-binary "$(brew --prefix xshelf)/bin/xshelf"
+          brew test xshelf
+          brew uninstall xshelf
+
+      - name: Upgrade stable archive install to reviewed bottle
+        env:
+          BASE_HEAD: e088b6dd3cc6346865f918c427482337bde9dd7e
+          EXPECTED_ARCH: ${{ matrix.arch }}
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+          HOMEBREW_DEVELOPER: 1
+          TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
+        run: |
+          tap_path="$(brew --repository "$TAP_NAME")"
+          bottle="$(find . -maxdepth 1 -type f -name 'xshelf--*.bottle*.tar.gz' -print -quit)"
+          upgrade_brew="$RUNNER_TEMP/xshelf-upgrade-brew"
+          upgrade_tap="$upgrade_brew/Library/Taps/fugamante/homebrew-tap"
+          git clone --quiet --no-hardlinks "$(brew --repository)" "$upgrade_brew"
+          mkdir -p "$(dirname "$upgrade_tap")"
+          git clone --quiet "$tap_path" "$upgrade_tap"
+
+          git -C "$upgrade_tap" checkout --quiet --detach "$BASE_HEAD"
+          HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 \
+            "$upgrade_brew/bin/brew" install fugamante/tap/xshelf
+          [[ "$("$upgrade_brew/bin/brew" list --versions xshelf)" == "xshelf 2026.08.29" ]]
+
+          git -C "$upgrade_tap" checkout --quiet --detach "$EXPECTED_HEAD"
+          HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 \
+            "$upgrade_brew/bin/brew" upgrade "$bottle"
+          [[ "$("$upgrade_brew/bin/brew" list --versions xshelf)" == "xshelf 2026.08.29_1" ]]
+          python3 "$tap_path/scripts/verify_bottle.py" \
+            --expected-arch "$EXPECTED_ARCH" \
+            --expected-head "$EXPECTED_HEAD" \
+            --installed-binary "$("$upgrade_brew/bin/brew" --prefix xshelf)/bin/xshelf"
+          HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 "$upgrade_brew/bin/brew" test xshelf
+          HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 \
+            "$upgrade_brew/bin/brew" uninstall --force xshelf
+          [[ ! -e "$upgrade_brew/Cellar/xshelf" ]]
+
+      - name: Upload reviewed bottle inventory
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bottles_${{ matrix.os }}
+          if-no-files-found: error
+          path: |
+            xshelf--*.bottle*.tar.gz
+            xshelf--*.bottle.json
+            bottle-proof.*.json
