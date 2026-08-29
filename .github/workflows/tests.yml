@@ -187,7 +187,8 @@ jobs:
             --expected-head "$EXPECTED_HEAD" \
             --installed-binary "$("$upgrade_brew/bin/brew" --prefix xshelf)/bin/xshelf"
           HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 "$upgrade_brew/bin/brew" test xshelf
-          HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 "$upgrade_brew/bin/brew" uninstall xshelf
+          HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 \
+            "$upgrade_brew/bin/brew" uninstall --force xshelf
           [[ ! -e "$upgrade_brew/Cellar/xshelf" ]]
 
       - name: Upload reviewed bottle inventory
