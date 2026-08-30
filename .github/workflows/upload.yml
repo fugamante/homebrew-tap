@@ -1,0 +1,347 @@
+name: bottle package upload
+
+on:
+  workflow_dispatch:
+    inputs:
+      workflow_sha:
+        description: Reviewed main commit containing this workflow
+        required: true
+      pull_request:
+        description: Reviewed pull request number
+        required: true
+      head_sha:
+        description: Reviewed pull request head commit
+        required: true
+      source_run_id:
+        description: Exact successful bottle CI run
+        required: true
+      preflight_run_id:
+        description: Exact successful read-only preflight run
+        required: true
+      arm_artifact_id:
+        description: Exact ARM64 artifact ID
+        required: true
+      arm_artifact_digest:
+        description: Exact ARM64 artifact archive SHA-256
+        required: true
+      intel_artifact_id:
+        description: Exact Intel artifact ID
+        required: true
+      intel_artifact_digest:
+        description: Exact Intel artifact archive SHA-256
+        required: true
+      package_version:
+        description: Exact Homebrew package version
+        required: true
+      arm_bottle_sha256:
+        description: Exact ARM64 bottle SHA-256
+        required: true
+      intel_bottle_sha256:
+        description: Exact Intel bottle SHA-256
+        required: true
+      arm_proof_sha256:
+        description: Exact ARM64 proof SHA-256
+        required: true
+      intel_proof_sha256:
+        description: Exact Intel proof SHA-256
+        required: true
+      confirm_upload:
+        description: Type upload-only to authorize the package upload gate
+        required: true
+
+permissions: {}
+
+concurrency:
+  group: xshelf-bottle-upload-${{ inputs.package_version }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash -xeuo pipefail {0}
+
+env:
+  EXPECTED_PR: "4"
+  EXPECTED_HEAD: 7f95ac9eb21e81265be5b40999c1c5234a9216a0
+  EXPECTED_SOURCE_RUN: "33275593090"
+  EXPECTED_PREFLIGHT_RUN: "33281832409"
+  EXPECTED_ARM_ARTIFACT: "9721419230"
+  EXPECTED_ARM_ARTIFACT_DIGEST: d4a7f900785f6cab4e074ba1d39f0f1d717f6e98223f7de3e8549febb1e4a8e8
+  EXPECTED_INTEL_ARTIFACT: "9721478678"
+  EXPECTED_INTEL_ARTIFACT_DIGEST: 5d507c6752742c0e33e4c293ea19523e9706d91a2a4905f81d82bcbc759011d8
+  EXPECTED_VERSION: 2026.08.29_1
+  EXPECTED_ARM_BOTTLE: 238df327ac156bc2b4c214b9368722a6cdc342a4e00d9e66b9ee56a5417923fb
+  EXPECTED_INTEL_BOTTLE: 63941eb9caa1cbf8472e6baafa22241db5418765bfb43bf600bd949c622d3aa1
+  EXPECTED_ARM_PROOF: 8a8d1933a98c902fcd9ff8eb70891f2e0b543c2e59ce32169517abed46933b34
+  EXPECTED_INTEL_PROOF: c61caa9fa6ca94724340734e624e6315c690fddd26f4625e86cf2c1c12b75d04
+  EXPECTED_ROOT_URL: https://ghcr.io/v2/fugamante/tap
+  EXPECTED_IMAGE: ghcr.io/fugamante/tap/xshelf:2026.08.29_1
+  HOMEBREW_SHA: b42173be7f90797c9b38ddbb03c9b32e6ed0e5a1
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      pull-requests: read
+    steps:
+      - name: Assert exact authority and hosted evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_WORKFLOW_SHA: ${{ inputs.workflow_sha }}
+          INPUT_PR: ${{ inputs.pull_request }}
+          INPUT_HEAD: ${{ inputs.head_sha }}
+          INPUT_SOURCE_RUN: ${{ inputs.source_run_id }}
+          INPUT_PREFLIGHT_RUN: ${{ inputs.preflight_run_id }}
+          INPUT_ARM_ARTIFACT: ${{ inputs.arm_artifact_id }}
+          INPUT_ARM_ARTIFACT_DIGEST: ${{ inputs.arm_artifact_digest }}
+          INPUT_INTEL_ARTIFACT: ${{ inputs.intel_artifact_id }}
+          INPUT_INTEL_ARTIFACT_DIGEST: ${{ inputs.intel_artifact_digest }}
+          INPUT_VERSION: ${{ inputs.package_version }}
+          INPUT_ARM_BOTTLE: ${{ inputs.arm_bottle_sha256 }}
+          INPUT_INTEL_BOTTLE: ${{ inputs.intel_bottle_sha256 }}
+          INPUT_ARM_PROOF: ${{ inputs.arm_proof_sha256 }}
+          INPUT_INTEL_PROOF: ${{ inputs.intel_proof_sha256 }}
+          INPUT_CONFIRM: ${{ inputs.confirm_upload }}
+        run: |
+          [[ "$GITHUB_REF" == refs/heads/main ]]
+          [[ "$GITHUB_SHA" == "$INPUT_WORKFLOW_SHA" ]]
+          [[ "$INPUT_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$INPUT_PR" == "$EXPECTED_PR" ]]
+          [[ "$INPUT_HEAD" == "$EXPECTED_HEAD" ]]
+          [[ "$INPUT_SOURCE_RUN" == "$EXPECTED_SOURCE_RUN" ]]
+          [[ "$INPUT_PREFLIGHT_RUN" == "$EXPECTED_PREFLIGHT_RUN" ]]
+          [[ "$INPUT_ARM_ARTIFACT" == "$EXPECTED_ARM_ARTIFACT" ]]
+          [[ "$INPUT_ARM_ARTIFACT_DIGEST" == "$EXPECTED_ARM_ARTIFACT_DIGEST" ]]
+          [[ "$INPUT_INTEL_ARTIFACT" == "$EXPECTED_INTEL_ARTIFACT" ]]
+          [[ "$INPUT_INTEL_ARTIFACT_DIGEST" == "$EXPECTED_INTEL_ARTIFACT_DIGEST" ]]
+          [[ "$INPUT_VERSION" == "$EXPECTED_VERSION" ]]
+          [[ "$INPUT_ARM_BOTTLE" == "$EXPECTED_ARM_BOTTLE" ]]
+          [[ "$INPUT_INTEL_BOTTLE" == "$EXPECTED_INTEL_BOTTLE" ]]
+          [[ "$INPUT_ARM_PROOF" == "$EXPECTED_ARM_PROOF" ]]
+          [[ "$INPUT_INTEL_PROOF" == "$EXPECTED_INTEL_PROOF" ]]
+          [[ "$INPUT_CONFIRM" == upload-only ]]
+
+          pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$EXPECTED_PR")"
+          [[ "$(jq -r .state <<<"$pr")" == open ]]
+          [[ "$(jq -r .merged <<<"$pr")" == false ]]
+          [[ "$(jq -r .head.sha <<<"$pr")" == "$EXPECTED_HEAD" ]]
+          [[ "$(jq -r .base.ref <<<"$pr")" == main ]]
+          [[ "$(jq -r .changed_files <<<"$pr")" == 2 ]]
+          files="$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$EXPECTED_PR/files" --jq '.[].filename' | sort)"
+          [[ "$files" == $'Formula/xshelf.rb\nscripts/verify_bottle.py' ]]
+
+          source_run="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$EXPECTED_SOURCE_RUN")"
+          [[ "$(jq -r .event <<<"$source_run")" == pull_request ]]
+          [[ "$(jq -r .status <<<"$source_run")" == completed ]]
+          [[ "$(jq -r .conclusion <<<"$source_run")" == success ]]
+          [[ "$(jq -r .head_sha <<<"$source_run")" == "$EXPECTED_HEAD" ]]
+          [[ "$(jq -r .path <<<"$source_run")" == .github/workflows/tests.yml ]]
+
+          preflight="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$EXPECTED_PREFLIGHT_RUN")"
+          [[ "$(jq -r .event <<<"$preflight")" == workflow_dispatch ]]
+          [[ "$(jq -r .status <<<"$preflight")" == completed ]]
+          [[ "$(jq -r .conclusion <<<"$preflight")" == success ]]
+          [[ "$(jq -r .path <<<"$preflight")" == .github/workflows/publish.yml ]]
+
+          for spec in \
+            "$EXPECTED_ARM_ARTIFACT:$EXPECTED_ARM_ARTIFACT_DIGEST:bottles_macos-15" \
+            "$EXPECTED_INTEL_ARTIFACT:$EXPECTED_INTEL_ARTIFACT_DIGEST:bottles_macos-15-intel"; do
+            IFS=: read -r id digest name <<<"$spec"
+            artifact="$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$id")"
+            [[ "$(jq -r .expired <<<"$artifact")" == false ]]
+            [[ "$(jq -r .name <<<"$artifact")" == "$name" ]]
+            [[ "$(jq -r .workflow_run.id <<<"$artifact")" == "$EXPECTED_SOURCE_RUN" ]]
+            [[ "$(jq -r .workflow_run.head_sha <<<"$artifact")" == "$EXPECTED_HEAD" ]]
+            [[ "$(jq -r .digest <<<"$artifact")" == "sha256:$digest" ]]
+          done
+
+  upload:
+    needs: validate
+    environment: bottle-publication
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      packages: write
+      pull-requests: read
+    steps:
+      - name: Set up isolated Homebrew
+        uses: Homebrew/actions/setup-homebrew@a657b8b0cd35d0f65cce41fce9b24cf054b49869 # 2026.08.24.1
+        with:
+          token: ""
+          brew-gh-api-token: ""
+
+      - name: Pin exact Homebrew implementation
+        run: |
+          git -C "$HOMEBREW_REPOSITORY" fetch --quiet --force origin "$HOMEBREW_SHA"
+          git -C "$HOMEBREW_REPOSITORY" checkout --quiet --detach "$HOMEBREW_SHA"
+          [[ "$(git -C "$HOMEBREW_REPOSITORY" rev-parse HEAD)" == "$HOMEBREW_SHA" ]]
+
+      - name: Re-assert PR and download exact artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [[ "$GITHUB_REF" == refs/heads/main ]]
+          [[ "$GITHUB_SHA" == "${{ inputs.workflow_sha }}" ]]
+          pr="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$EXPECTED_PR")"
+          [[ "$(jq -r .state <<<"$pr")" == open ]]
+          [[ "$(jq -r .merged <<<"$pr")" == false ]]
+          [[ "$(jq -r .head.sha <<<"$pr")" == "$EXPECTED_HEAD" ]]
+
+          work="$RUNNER_TEMP/xshelf-bottle-upload"
+          mkdir -p "$work"
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$EXPECTED_ARM_ARTIFACT/zip" >"$work/arm.zip"
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts/$EXPECTED_INTEL_ARTIFACT/zip" >"$work/intel.zip"
+          [[ "$(sha256sum "$work/arm.zip" | cut -d' ' -f1)" == "$EXPECTED_ARM_ARTIFACT_DIGEST" ]]
+          [[ "$(sha256sum "$work/intel.zip" | cut -d' ' -f1)" == "$EXPECTED_INTEL_ARTIFACT_DIGEST" ]]
+
+          python3 - "$work" <<'PY'
+          import json, os, pathlib, shutil, sys, zipfile
+
+          work = pathlib.Path(sys.argv[1])
+          version = os.environ["EXPECTED_VERSION"]
+          specs = {
+              "arm": {
+                  f"bottle-proof.arm64_sequoia.json",
+                  f"xshelf--{version}.arm64_sequoia.bottle.json",
+                  f"xshelf--{version}.arm64_sequoia.bottle.tar.gz",
+              },
+              "intel": {
+                  f"bottle-proof.sequoia.json",
+                  f"xshelf--{version}.sequoia.bottle.json",
+                  f"xshelf--{version}.sequoia.bottle.tar.gz",
+              },
+          }
+          bundle = work / "bundle"
+          bundle.mkdir()
+          for kind, expected in specs.items():
+              with zipfile.ZipFile(work / f"{kind}.zip") as archive:
+                  members = archive.infolist()
+                  names = {member.filename for member in members}
+                  if names != expected or any(
+                      pathlib.PurePosixPath(member.filename).is_absolute()
+                      or ".." in pathlib.PurePosixPath(member.filename).parts
+                      or ((member.external_attr >> 16) & 0o170000) != 0o100000
+                      for member in members
+                  ):
+                      raise SystemExit(f"unexpected {kind} archive inventory: {sorted(names)}")
+                  archive.extractall(work / kind)
+              for name in expected:
+                  shutil.copy2(work / kind / name, bundle / name)
+          PY
+
+      - name: Validate exact bottle and proof contract
+        run: |
+          work="$RUNNER_TEMP/xshelf-bottle-upload/bundle"
+          [[ "$(sha256sum "$work/xshelf--$EXPECTED_VERSION.arm64_sequoia.bottle.tar.gz" | cut -d' ' -f1)" == "$EXPECTED_ARM_BOTTLE" ]]
+          [[ "$(sha256sum "$work/xshelf--$EXPECTED_VERSION.sequoia.bottle.tar.gz" | cut -d' ' -f1)" == "$EXPECTED_INTEL_BOTTLE" ]]
+          [[ "$(sha256sum "$work/bottle-proof.arm64_sequoia.json" | cut -d' ' -f1)" == "$EXPECTED_ARM_PROOF" ]]
+          [[ "$(sha256sum "$work/bottle-proof.sequoia.json" | cut -d' ' -f1)" == "$EXPECTED_INTEL_PROOF" ]]
+
+          python3 - "$work" <<'PY'
+          import hashlib, json, os, pathlib, sys
+
+          root = pathlib.Path(sys.argv[1])
+          version = os.environ["EXPECTED_VERSION"]
+          head = os.environ["EXPECTED_HEAD"]
+          root_url = os.environ["EXPECTED_ROOT_URL"]
+          expected = {
+              "arm64_sequoia": ("arm64", os.environ["EXPECTED_ARM_BOTTLE"]),
+              "sequoia": ("x86_64", os.environ["EXPECTED_INTEL_BOTTLE"]),
+          }
+          found = {}
+          for path in sorted(root.glob("*.bottle.json")):
+              document = json.loads(path.read_text())
+              if set(document) != {"fugamante/tap/xshelf"}:
+                  raise SystemExit(f"unexpected formula inventory: {path}")
+              record = document["fugamante/tap/xshelf"]
+              formula, bottle = record["formula"], record["bottle"]
+              if formula["pkg_version"] != version or formula["tap_git_revision"] != head:
+                  raise SystemExit(f"formula provenance mismatch: {path}")
+              if formula["tap_git_path"] != "Formula/xshelf.rb" or bottle["root_url"] != root_url or bottle["rebuild"] != 0:
+                  raise SystemExit(f"bottle contract mismatch: {path}")
+              if len(bottle["tags"]) != 1:
+                  raise SystemExit(f"unexpected tag inventory: {path}")
+              tag, tag_record = next(iter(bottle["tags"].items()))
+              arch, digest = expected[tag]
+              archive = root / tag_record["local_filename"]
+              actual = hashlib.sha256(archive.read_bytes()).hexdigest()
+              if tag_record["tab"]["arch"] != arch or tag_record["sha256"] != digest or actual != digest:
+                  raise SystemExit(f"bottle mismatch: {tag}")
+              found[tag] = arch
+          if found != {tag: value[0] for tag, value in expected.items()}:
+              raise SystemExit(f"incomplete bottle inventory: {found}")
+
+          proofs = [json.loads(path.read_text()) for path in sorted(root.glob("bottle-proof.*.json"))]
+          proof_inventory = {proof["platform_tag"]: proof["architecture"] for proof in proofs}
+          if proof_inventory != found:
+              raise SystemExit(f"proof inventory mismatch: {proof_inventory}")
+          for proof in proofs:
+              tag = proof["platform_tag"]
+              if proof["reviewed_head"] != head or proof["bottle_sha256"] != expected[tag][1]:
+                  raise SystemExit(f"proof provenance mismatch: {tag}")
+              if not proof["hardened_runtime"] or not proof["secure_timestamp"] or proof["notarization_status"] != "Accepted":
+                  raise SystemExit(f"proof invariant mismatch: {tag}")
+          PY
+
+      - name: Generate deterministic OCI layout without uploading
+        id: layout
+        working-directory: ${{ runner.temp }}/xshelf-bottle-upload/bundle
+        env:
+          HOMEBREW_GITHUB_PACKAGES_USER: dry-run
+          HOMEBREW_GITHUB_PACKAGES_TOKEN: dry-run-not-a-credential
+        run: |
+          brew pr-upload --upload-only --dry-run
+          digest="$(jq -er '.manifests[0].digest' "xshelf--$EXPECTED_VERSION/index.json")"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          [[ "$(sha256sum "xshelf--$EXPECTED_VERSION/blobs/sha256/${digest#sha256:}" | cut -d' ' -f1)" == "${digest#sha256:}" ]]
+          echo "image_index_digest=$digest" >>"$GITHUB_OUTPUT"
+
+      - name: Upload exact package without formula mutation
+        id: package_upload
+        working-directory: ${{ runner.temp }}/xshelf-bottle-upload/bundle
+        env:
+          HOMEBREW_GITHUB_PACKAGES_USER: ${{ github.actor }}
+          HOMEBREW_GITHUB_PACKAGES_TOKEN: ${{ github.token }}
+        run: |
+          brew pr-upload --upload-only
+          echo "upload_completed=true" >>"$GITHUB_OUTPUT"
+          echo "Package upload command completed for $EXPECTED_IMAGE." >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Verify public anonymous OCI bytes
+        env:
+          EXPECTED_INDEX_DIGEST: ${{ steps.layout.outputs.image_index_digest }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          base="https://ghcr.io/v2/fugamante/tap/xshelf"
+          token=""
+          for attempt in {1..12}; do
+            token="$(curl --fail --silent --show-error 'https://ghcr.io/token?service=ghcr.io&scope=repository:fugamante/tap/xshelf:pull' | jq -er .token)" && break
+            sleep 5
+          done
+          [[ -n "$token" ]]
+          remote="$RUNNER_TEMP/remote-index.json"
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer $token" \
+            -H 'Accept: application/vnd.oci.image.index.v1+json' \
+            "$base/manifests/$EXPECTED_VERSION" >"$remote"
+          [[ "$(sha256sum "$remote" | cut -d' ' -f1)" == "${EXPECTED_INDEX_DIGEST#sha256:}" ]]
+          platforms="$(jq -r '.manifests[] | [.platform.architecture,.platform.os] | @tsv' "$remote" | sort)"
+          [[ "$platforms" == $'amd64\tdarwin\narm64\tdarwin' ]]
+
+          for digest in $(jq -r '.manifests[].digest' "$remote"); do
+            manifest="$RUNNER_TEMP/${digest#sha256:}.json"
+            curl --fail --silent --show-error \
+              -H "Authorization: Bearer $token" \
+              -H 'Accept: application/vnd.oci.image.manifest.v1+json' \
+              "$base/manifests/$digest" >"$manifest"
+            layer="$(jq -er '.layers | select(length == 1) | .[0].digest' "$manifest")"
+            [[ "$layer" == "sha256:$EXPECTED_ARM_BOTTLE" || "$layer" == "sha256:$EXPECTED_INTEL_BOTTLE" ]]
+            curl --fail --silent --show-error \
+              -H "Authorization: Bearer $token" \
+              "$base/blobs/$layer" >"$RUNNER_TEMP/${layer#sha256:}.tar.gz"
+            [[ "$(sha256sum "$RUNNER_TEMP/${layer#sha256:}.tar.gz" | cut -d' ' -f1)" == "${layer#sha256:}" ]]
+          done
+
+          package="$(gh api 'users/fugamante/packages/container/tap%2Fxshelf')"
+          [[ "$(jq -r .visibility <<<"$package")" == public ]]
+          echo "Anonymous OCI verification passed for $EXPECTED_IMAGE." >>"$GITHUB_STEP_SUMMARY"
