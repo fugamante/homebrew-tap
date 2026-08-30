@@ -338,7 +338,7 @@ jobs:
               "$base/manifests/$digest" >"$manifest"
             layer="$(jq -er '.layers | select(length == 1) | .[0].digest' "$manifest")"
             [[ "$layer" == "sha256:$EXPECTED_ARM_BOTTLE" || "$layer" == "sha256:$EXPECTED_INTEL_BOTTLE" ]]
-            curl --fail --silent --show-error \
+            curl --fail --silent --show-error --location \
               -H "Authorization: Bearer $token" \
               "$base/blobs/$layer" >"$RUNNER_TEMP/${layer#sha256:}.tar.gz"
             [[ "$(sha256sum "$RUNNER_TEMP/${layer#sha256:}.tar.gz" | cut -d' ' -f1)" == "${layer#sha256:}" ]]
