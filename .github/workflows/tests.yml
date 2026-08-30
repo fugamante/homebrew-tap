@@ -115,9 +115,25 @@ jobs:
         run: |
           tap_path="$(brew --repository "$TAP_NAME")"
           bottle="$(find . -maxdepth 1 -type f -name 'xshelf--*.bottle*.tar.gz' -print -quit)"
-          alt_brew="$RUNNER_TEMP/xshelf-pour-brew"
+          build_prefix="$(brew --prefix)"
+          alt_brew="/opt/xp"
+          [[ "$alt_brew" == "/opt/xp" ]]
+          [[ "$(cd /opt && pwd -P)" == "/opt" ]]
+          [[ ! -e "$alt_brew" ]]
+          [[ "${#alt_brew}" -le "${#build_prefix}" ]]
+          sudo mkdir "$alt_brew"
+          cleanup_alt() {
+            [[ "$alt_brew" == "/opt/xp" ]]
+            sudo rm -rf -- "$alt_brew"
+          }
+          trap cleanup_alt EXIT
+          sudo chown "$(id -u):$(id -g)" "$alt_brew"
+          [[ "$(stat -f '%u:%g' "$alt_brew")" == "$(id -u):$(id -g)" ]]
           git clone --quiet --no-hardlinks "$(brew --repository)" "$alt_brew"
-          [[ "$alt_brew" != "$(brew --prefix)" ]]
+          isolated_prefix="$("$alt_brew/bin/brew" --prefix)"
+          [[ "$isolated_prefix" == "$alt_brew" ]]
+          [[ "$isolated_prefix" != "$build_prefix" ]]
+          [[ "${#isolated_prefix}" -le "${#build_prefix}" ]]
           HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 "$alt_brew/bin/brew" install "$bottle"
           python3 "$tap_path/scripts/verify_bottle.py" \
             --expected-arch "$EXPECTED_ARCH" \
@@ -126,6 +142,9 @@ jobs:
           HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 "$alt_brew/bin/brew" test xshelf
           HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 "$alt_brew/bin/brew" uninstall xshelf
           [[ ! -e "$alt_brew/Cellar/xshelf" ]]
+          cleanup_alt
+          trap - EXIT
+          [[ ! -e "$alt_brew" ]]
 
       - name: Pour, test, uninstall, and prove archive fallback
         env:
@@ -165,9 +184,26 @@ jobs:
         run: |
           tap_path="$(brew --repository "$TAP_NAME")"
           bottle="$(find . -maxdepth 1 -type f -name 'xshelf--*.bottle*.tar.gz' -print -quit)"
-          upgrade_brew="$RUNNER_TEMP/xshelf-upgrade-brew"
+          build_prefix="$(brew --prefix)"
+          upgrade_brew="/opt/xu"
           upgrade_tap="$upgrade_brew/Library/Taps/fugamante/homebrew-tap"
+          [[ "$upgrade_brew" == "/opt/xu" ]]
+          [[ "$(cd /opt && pwd -P)" == "/opt" ]]
+          [[ ! -e "$upgrade_brew" ]]
+          [[ "${#upgrade_brew}" -le "${#build_prefix}" ]]
+          sudo mkdir "$upgrade_brew"
+          cleanup_upgrade() {
+            [[ "$upgrade_brew" == "/opt/xu" ]]
+            sudo rm -rf -- "$upgrade_brew"
+          }
+          trap cleanup_upgrade EXIT
+          sudo chown "$(id -u):$(id -g)" "$upgrade_brew"
+          [[ "$(stat -f '%u:%g' "$upgrade_brew")" == "$(id -u):$(id -g)" ]]
           git clone --quiet --no-hardlinks "$(brew --repository)" "$upgrade_brew"
+          isolated_prefix="$("$upgrade_brew/bin/brew" --prefix)"
+          [[ "$isolated_prefix" == "$upgrade_brew" ]]
+          [[ "$isolated_prefix" != "$build_prefix" ]]
+          [[ "${#isolated_prefix}" -le "${#build_prefix}" ]]
           mkdir -p "$(dirname "$upgrade_tap")"
           git clone --quiet "$tap_path" "$upgrade_tap"
 
@@ -188,6 +224,9 @@ jobs:
           HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 \
             "$upgrade_brew/bin/brew" uninstall --force xshelf
           [[ ! -e "$upgrade_brew/Cellar/xshelf" ]]
+          cleanup_upgrade
+          trap - EXIT
+          [[ ! -e "$upgrade_brew" ]]
 
       - name: Upload reviewed bottle inventory
         if: always()
