@@ -172,9 +172,11 @@ jobs:
 
       - name: Pin exact Homebrew implementation
         run: |
-          git -C "$HOMEBREW_REPOSITORY" fetch --quiet --force origin "$HOMEBREW_SHA"
-          git -C "$HOMEBREW_REPOSITORY" checkout --quiet --detach "$HOMEBREW_SHA"
-          [[ "$(git -C "$HOMEBREW_REPOSITORY" rev-parse HEAD)" == "$HOMEBREW_SHA" ]]
+          brew_repo="$(brew --repository)"
+          [[ -n "$brew_repo" ]] || { echo "Homebrew repository path is empty" >&2; exit 1; }
+          git -C "$brew_repo" fetch --quiet --force origin "$HOMEBREW_SHA"
+          git -C "$brew_repo" checkout --quiet --detach "$HOMEBREW_SHA"
+          [[ "$(git -C "$brew_repo" rev-parse HEAD)" == "$HOMEBREW_SHA" ]]
 
       - name: Re-assert PR and download exact artifacts
         env:
