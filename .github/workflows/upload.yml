@@ -316,7 +316,7 @@ jobs:
         run: |
           base="https://ghcr.io/v2/fugamante/tap/xshelf"
           token=""
-          for attempt in {1..12}; do
+          for _attempt in {1..12}; do
             token="$(curl --fail --silent --show-error 'https://ghcr.io/token?service=ghcr.io&scope=repository:fugamante/tap/xshelf:pull' | jq -er .token)" && break
             sleep 5
           done
