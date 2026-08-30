@@ -113,27 +113,39 @@ jobs:
           HOMEBREW_DEVELOPER: 1
           TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
         run: |
+          fail() {
+            echo "$1" >&2
+            exit 1
+          }
           tap_path="$(brew --repository "$TAP_NAME")"
           bottle="$(find . -maxdepth 1 -type f -name 'xshelf--*.bottle*.tar.gz' -print -quit)"
           build_prefix="$(brew --prefix)"
           alt_brew="/opt/xp"
-          [[ "$alt_brew" == "/opt/xp" ]]
-          [[ "$(cd /opt && pwd -P)" == "/opt" ]]
-          [[ ! -e "$alt_brew" ]]
-          [[ "${#alt_brew}" -le "${#build_prefix}" ]]
+          [[ "$alt_brew" == "/opt/xp" ]] || fail "unexpected alternate Homebrew prefix: $alt_brew"
+          [[ "$(cd /opt && pwd -P)" == "/opt" ]] || fail "/opt is not canonical"
+          [[ ! -e "$alt_brew" ]] || fail "alternate Homebrew prefix already exists: $alt_brew"
+          [[ "${#alt_brew}" -le "${#build_prefix}" ]] ||
+            fail "alternate Homebrew prefix is longer than the build prefix"
           sudo mkdir "$alt_brew"
           cleanup_alt() {
-            [[ "$alt_brew" == "/opt/xp" ]]
+            if [[ "$alt_brew" != "/opt/xp" ]]; then
+              echo "refusing cleanup outside /opt/xp: $alt_brew" >&2
+              return 1
+            fi
             sudo rm -rf -- "$alt_brew"
           }
-          trap cleanup_alt EXIT
+          trap 'cleanup_alt || exit 1' EXIT
           sudo chown "$(id -u):$(id -g)" "$alt_brew"
-          [[ "$(stat -f '%u:%g' "$alt_brew")" == "$(id -u):$(id -g)" ]]
+          [[ "$(stat -f '%u:%g' "$alt_brew")" == "$(id -u):$(id -g)" ]] ||
+            fail "alternate Homebrew prefix ownership mismatch"
           git clone --quiet --no-hardlinks "$(brew --repository)" "$alt_brew"
           isolated_prefix="$("$alt_brew/bin/brew" --prefix)"
-          [[ "$isolated_prefix" == "$alt_brew" ]]
-          [[ "$isolated_prefix" != "$build_prefix" ]]
-          [[ "${#isolated_prefix}" -le "${#build_prefix}" ]]
+          [[ "$isolated_prefix" == "$alt_brew" ]] ||
+            fail "unexpected effective alternate Homebrew prefix: $isolated_prefix"
+          [[ "$isolated_prefix" != "$build_prefix" ]] ||
+            fail "alternate Homebrew prefix is not isolated"
+          [[ "${#isolated_prefix}" -le "${#build_prefix}" ]] ||
+            fail "effective alternate Homebrew prefix is longer than the build prefix"
           HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 "$alt_brew/bin/brew" install "$bottle"
           python3 "$tap_path/scripts/verify_bottle.py" \
             --expected-arch "$EXPECTED_ARCH" \
@@ -141,10 +153,11 @@ jobs:
             --installed-binary "$("$alt_brew/bin/brew" --prefix xshelf)/bin/xshelf"
           HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 "$alt_brew/bin/brew" test xshelf
           HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 "$alt_brew/bin/brew" uninstall xshelf
-          [[ ! -e "$alt_brew/Cellar/xshelf" ]]
-          cleanup_alt
+          [[ ! -e "$alt_brew/Cellar/xshelf" ]] ||
+            fail "xshelf remains installed in the alternate Homebrew Cellar"
+          cleanup_alt || fail "alternate Homebrew cleanup failed"
           trap - EXIT
-          [[ ! -e "$alt_brew" ]]
+          [[ ! -e "$alt_brew" ]] || fail "alternate Homebrew prefix remains after cleanup"
 
       - name: Pour, test, uninstall, and prove archive fallback
         env:
@@ -155,7 +168,10 @@ jobs:
         run: |
           tap_path="$(brew --repository "$TAP_NAME")"
           bottle="$(find . -maxdepth 1 -type f -name 'xshelf--*.bottle*.tar.gz' -print -quit)"
-          [[ -n "$bottle" ]]
+          if [[ -z "$bottle" ]]; then
+            echo "reviewed bottle not found" >&2
+            exit 1
+          fi
 
           brew uninstall --force xshelf || true
           brew install "$bottle"
@@ -182,51 +198,71 @@ jobs:
           HOMEBREW_DEVELOPER: 1
           TAP_NAME: ${{ steps.set-up-homebrew.outputs.tap-name }}
         run: |
+          fail() {
+            echo "$1" >&2
+            exit 1
+          }
           tap_path="$(brew --repository "$TAP_NAME")"
           bottle="$(find . -maxdepth 1 -type f -name 'xshelf--*.bottle*.tar.gz' -print -quit)"
           build_prefix="$(brew --prefix)"
           upgrade_brew="/opt/xu"
           upgrade_tap="$upgrade_brew/Library/Taps/fugamante/homebrew-tap"
-          [[ "$upgrade_brew" == "/opt/xu" ]]
-          [[ "$(cd /opt && pwd -P)" == "/opt" ]]
-          [[ ! -e "$upgrade_brew" ]]
-          [[ "${#upgrade_brew}" -le "${#build_prefix}" ]]
+          [[ "$upgrade_brew" == "/opt/xu" ]] || fail "unexpected upgrade Homebrew prefix: $upgrade_brew"
+          [[ "$(cd /opt && pwd -P)" == "/opt" ]] || fail "/opt is not canonical"
+          [[ ! -e "$upgrade_brew" ]] || fail "upgrade Homebrew prefix already exists: $upgrade_brew"
+          [[ "${#upgrade_brew}" -le "${#build_prefix}" ]] ||
+            fail "upgrade Homebrew prefix is longer than the build prefix"
           sudo mkdir "$upgrade_brew"
           cleanup_upgrade() {
-            [[ "$upgrade_brew" == "/opt/xu" ]]
+            if [[ "$upgrade_brew" != "/opt/xu" ]]; then
+              echo "refusing cleanup outside /opt/xu: $upgrade_brew" >&2
+              return 1
+            fi
             sudo rm -rf -- "$upgrade_brew"
           }
-          trap cleanup_upgrade EXIT
+          trap 'cleanup_upgrade || exit 1' EXIT
           sudo chown "$(id -u):$(id -g)" "$upgrade_brew"
-          [[ "$(stat -f '%u:%g' "$upgrade_brew")" == "$(id -u):$(id -g)" ]]
+          [[ "$(stat -f '%u:%g' "$upgrade_brew")" == "$(id -u):$(id -g)" ]] ||
+            fail "upgrade Homebrew prefix ownership mismatch"
           git clone --quiet --no-hardlinks "$(brew --repository)" "$upgrade_brew"
           isolated_prefix="$("$upgrade_brew/bin/brew" --prefix)"
-          [[ "$isolated_prefix" == "$upgrade_brew" ]]
-          [[ "$isolated_prefix" != "$build_prefix" ]]
-          [[ "${#isolated_prefix}" -le "${#build_prefix}" ]]
+          [[ "$isolated_prefix" == "$upgrade_brew" ]] ||
+            fail "unexpected effective upgrade Homebrew prefix: $isolated_prefix"
+          [[ "$isolated_prefix" != "$build_prefix" ]] ||
+            fail "upgrade Homebrew prefix is not isolated"
+          [[ "${#isolated_prefix}" -le "${#build_prefix}" ]] ||
+            fail "effective upgrade Homebrew prefix is longer than the build prefix"
           mkdir -p "$(dirname "$upgrade_tap")"
           git clone --quiet "$tap_path" "$upgrade_tap"
 
           git -C "$upgrade_tap" checkout --quiet --detach "$BASE_HEAD"
           HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 \
             "$upgrade_brew/bin/brew" install fugamante/tap/xshelf
-          [[ "$("$upgrade_brew/bin/brew" list --versions xshelf)" == "xshelf 2026.08.29" ]]
+          [[ "$("$upgrade_brew/bin/brew" list --versions xshelf)" == "xshelf 2026.08.29" ]] ||
+            fail "unexpected stable xshelf inventory"
 
           git -C "$upgrade_tap" checkout --quiet --detach "$EXPECTED_HEAD"
           HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 \
             "$upgrade_brew/bin/brew" upgrade "$bottle"
-          [[ "$("$upgrade_brew/bin/brew" list --versions xshelf)" == "xshelf 2026.08.29_1" ]]
+          upgraded_inventory="$("$upgrade_brew/bin/brew" list --versions xshelf)"
+          [[ "$upgraded_inventory" == "xshelf 2026.08.29 2026.08.29_1" ]] ||
+            fail "unexpected upgraded xshelf inventory: $upgraded_inventory"
+          active_prefix="$("$upgrade_brew/bin/brew" --prefix xshelf)"
+          active_cellar="$(cd "$active_prefix" && pwd -P)"
+          [[ "$active_cellar" == "$upgrade_brew/Cellar/xshelf/2026.08.29_1" ]] ||
+            fail "reviewed xshelf keg is not active: $active_cellar"
           python3 "$tap_path/scripts/verify_bottle.py" \
             --expected-arch "$EXPECTED_ARCH" \
             --expected-head "$EXPECTED_HEAD" \
-            --installed-binary "$("$upgrade_brew/bin/brew" --prefix xshelf)/bin/xshelf"
+            --installed-binary "$active_prefix/bin/xshelf"
           HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 "$upgrade_brew/bin/brew" test xshelf
           HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 \
             "$upgrade_brew/bin/brew" uninstall --force xshelf
-          [[ ! -e "$upgrade_brew/Cellar/xshelf" ]]
-          cleanup_upgrade
+          [[ ! -e "$upgrade_brew/Cellar/xshelf" ]] ||
+            fail "xshelf remains installed in the upgrade Homebrew Cellar"
+          cleanup_upgrade || fail "upgrade Homebrew cleanup failed"
           trap - EXIT
-          [[ ! -e "$upgrade_brew" ]]
+          [[ ! -e "$upgrade_brew" ]] || fail "upgrade Homebrew prefix remains after cleanup"
 
       - name: Upload reviewed bottle inventory
         if: always()
