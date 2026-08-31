@@ -1,0 +1,163 @@
+{
+  "assertions": {
+    "anonymous_oci_retrieval_verified": true,
+    "artifact_proofs_exact_head_bound": true,
+    "oci_revision_exact_head_bound": true,
+    "proof_records_embedded": true
+  },
+  "contract_version": "xshelf-bottle-provenance.v1",
+  "formula": {
+    "integrated_main_commit": "cc97e55cd24296f613d21499162283fb6c870036",
+    "integrated_main_formula_sha256": "01bab870b043e50c6446d9a7428b886ce581c1b148c67f61cafc6dcefd49679e",
+    "pr_head_formula_sha256": "5e8fa69063993843f5e2169b047980ab99ed2bfdcd4a339de1d61bd14310d6cb",
+    "revision": 1,
+    "verifier_sha256": "4c587d4c2cff06431660bc4ddb2adbe01163440982c11949a2c2148f4cb7e8b2"
+  },
+  "oci": {
+    "index_digest": "sha256:7cfa75fd5e764d51ae9cef3f5f087da219f07af645c0a9fdd6eb6fe755868a17",
+    "registry_repository": "ghcr.io/fugamante/tap/xshelf",
+    "revision": "7f95ac9eb21e81265be5b40999c1c5234a9216a0",
+    "source": "https://github.com/fugamante/homebrew-tap/blob/7f95ac9eb21e81265be5b40999c1c5234a9216a0/Formula/xshelf.rb",
+    "tag": "2026.08.29_1"
+  },
+  "package": {
+    "formula_revision": 1,
+    "name": "fugamante/tap/xshelf",
+    "version": "2026.08.29_1"
+  },
+  "platforms": {
+    "arm64_sequoia": {
+      "artifact": {
+        "api_zip_sha256": "d4a7f900785f6cab4e074ba1d39f0f1d717f6e98223f7de3e8549febb1e4a8e8",
+        "expires_at": "2026-11-27T21:15:18Z",
+        "id": 9721419230,
+        "name": "bottles_macos-15"
+      },
+      "bottle_json_sha256": "003073570fef3031972ba8e2c2e4040f3d52ffcc6e81695c22c4f293969164db",
+      "bottle_sha256": "238df327ac156bc2b4c214b9368722a6cdc342a4e00d9e66b9ee56a5417923fb",
+      "oci": {
+        "config_digest": "sha256:4b98a17309cf57b8c6094565a6f2bcbd61caa8cbc4b2e3b28f5df1a9b51fc843",
+        "layer_digest": "sha256:238df327ac156bc2b4c214b9368722a6cdc342a4e00d9e66b9ee56a5417923fb",
+        "manifest_digest": "sha256:746cb567e0ba620f1b45f281cd41e8adcc9a9dbe706152602c69fc0a06bda9a3",
+        "platform_architecture": "arm64",
+        "platform_os": "darwin",
+        "platform_os_version": "macOS 15.7"
+      },
+      "proof": {
+        "record": {
+          "architecture": "arm64",
+          "bottle_sha256": "238df327ac156bc2b4c214b9368722a6cdc342a4e00d9e66b9ee56a5417923fb",
+          "cellar": "any_skip_relocation",
+          "code_directory_hash": "fccc78e1e8065f93334df21b156d983197a49bf5",
+          "contract_version": "xshelf-bottle-proof.v1",
+          "hardened_runtime": true,
+          "notarization_evidence_sha256": "808d2d652d3395365139dd145993fe53cf9dc41583bf942e9e4fc970d097540c",
+          "notarization_status": "Accepted",
+          "platform_tag": "arm64_sequoia",
+          "reviewed_head": "7f95ac9eb21e81265be5b40999c1c5234a9216a0",
+          "secure_timestamp": true,
+          "source_archive": "xshelf-2026.08.29-aarch64-apple-darwin.tar.gz",
+          "source_archive_sha256": "8805b084205cbb5641cdd95099d5bffa615ca9d68f80a7823a4277b3279d0a23",
+          "source_binary_sha256": "dd4c0e366a5b08df1db8e27af358d5e6d467909987deb2ec9161ce54051316a3"
+        },
+        "sha256": "8a8d1933a98c902fcd9ff8eb70891f2e0b543c2e59ce32169517abed46933b34"
+      }
+    },
+    "sequoia": {
+      "artifact": {
+        "api_zip_sha256": "5d507c6752742c0e33e4c293ea19523e9706d91a2a4905f81d82bcbc759011d8",
+        "expires_at": "2026-11-27T21:15:18Z",
+        "id": 9721478678,
+        "name": "bottles_macos-15-intel"
+      },
+      "bottle_json_sha256": "c9743ead011f10b5fbf2536ef229b43b96596ab4ebde9964937c6843d1e07f2e",
+      "bottle_sha256": "63941eb9caa1cbf8472e6baafa22241db5418765bfb43bf600bd949c622d3aa1",
+      "oci": {
+        "config_digest": "sha256:a5d7237c8beb9ce314754ed883087406023ec4cbf4add65bc76699b776b1337d",
+        "layer_digest": "sha256:63941eb9caa1cbf8472e6baafa22241db5418765bfb43bf600bd949c622d3aa1",
+        "manifest_digest": "sha256:356bfcf1bf2d2381b540b75224d12ae91e1ddfe6ec7ca24e3df68a3f399f5b2a",
+        "platform_architecture": "amd64",
+        "platform_os": "darwin",
+        "platform_os_version": "macOS 15.7"
+      },
+      "proof": {
+        "record": {
+          "architecture": "x86_64",
+          "bottle_sha256": "63941eb9caa1cbf8472e6baafa22241db5418765bfb43bf600bd949c622d3aa1",
+          "cellar": "any_skip_relocation",
+          "code_directory_hash": "b55a1eaf28e0f8e5887d6876e1e83335caa2cb12",
+          "contract_version": "xshelf-bottle-proof.v1",
+          "hardened_runtime": true,
+          "notarization_evidence_sha256": "165a39f642bd3740ccf8e17e2ebb773ce5471d023bcf2be21e6b21639530c0b8",
+          "notarization_status": "Accepted",
+          "platform_tag": "sequoia",
+          "reviewed_head": "7f95ac9eb21e81265be5b40999c1c5234a9216a0",
+          "secure_timestamp": true,
+          "source_archive": "xshelf-2026.08.29-x86_64-apple-darwin.tar.gz",
+          "source_archive_sha256": "86a4539e93d721a25ee959d802010f2c3897b84538237a63f75ae358b21a9e9c",
+          "source_binary_sha256": "10f28e168fac9891362328d7c5c66c68e8b9816905caa37382a08c5ce54180da"
+        },
+        "sha256": "c61caa9fa6ca94724340734e624e6315c690fddd26f4625e86cf2c1c12b75d04"
+      }
+    }
+  },
+  "pull_request": {
+    "base": "e1cbc6b7189e98a37764fb6b9489c5b54f8ac7d0",
+    "head": "7f95ac9eb21e81265be5b40999c1c5234a9216a0",
+    "number": 4,
+    "parent": "e1cbc6b7189e98a37764fb6b9489c5b54f8ac7d0",
+    "repository": "fugamante/homebrew-tap",
+    "tree": "d7c43b44251016f725f01576f5df56698b5de2e6"
+  },
+  "release": {
+    "assets": {
+      "SHA256SUMS": {
+        "sha256": "dc8cfa754c7024ea88d7f9e6c39d2993c5e3672ef71313ac9307f3cfcab9407e",
+        "size": 223
+      },
+      "xshelf-2026.08.29-aarch64-apple-darwin.tar.gz": {
+        "sha256": "8805b084205cbb5641cdd95099d5bffa615ca9d68f80a7823a4277b3279d0a23",
+        "size": 4275564
+      },
+      "xshelf-2026.08.29-aarch64-apple-darwin.tar.gz.notary.json": {
+        "sha256": "808d2d652d3395365139dd145993fe53cf9dc41583bf942e9e4fc970d097540c",
+        "size": 615
+      },
+      "xshelf-2026.08.29-x86_64-apple-darwin.tar.gz": {
+        "sha256": "86a4539e93d721a25ee959d802010f2c3897b84538237a63f75ae358b21a9e9c",
+        "size": 4868043
+      },
+      "xshelf-2026.08.29-x86_64-apple-darwin.tar.gz.notary.json": {
+        "sha256": "165a39f642bd3740ccf8e17e2ebb773ce5471d023bcf2be21e6b21639530c0b8",
+        "size": 613
+      }
+    },
+    "published_at": "2026-08-29T18:44:31Z",
+    "repository": "fugamante/XSHELF",
+    "tag": "v2026.08.29"
+  },
+  "runs": {
+    "preflight": {
+      "attempt": 1,
+      "conclusion": "success",
+      "event": "workflow_dispatch",
+      "head_sha": "e1cbc6b7189e98a37764fb6b9489c5b54f8ac7d0",
+      "id": 33281832409,
+      "job_id": 99178174268,
+      "no_upload": true,
+      "reviewed_head": "7f95ac9eb21e81265be5b40999c1c5234a9216a0"
+    },
+    "source": {
+      "attempt": 1,
+      "conclusion": "success",
+      "event": "pull_request",
+      "head_sha": "7f95ac9eb21e81265be5b40999c1c5234a9216a0",
+      "id": 33275593090,
+      "jobs": {
+        "arm64": 99161614153,
+        "intel": 99161614070
+      }
+    }
+  },
+  "verified_at": "2026-08-31"
+}
