@@ -51,6 +51,8 @@ jobs:
           HEAD_SHA: ${{ inputs.head_sha }}
           PULL_REQUEST: ${{ inputs.pull_request }}
         run: |
+          GIT_COMMITTER_NAME="XSHELF Preflight" \
+          GIT_COMMITTER_EMAIL="preflight@example.invalid" \
           brew pr-pull \
             --debug \
             --clean \
