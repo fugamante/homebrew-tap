@@ -11,6 +11,7 @@ class Xshelf < Formula
     sha256 cellar: :any_skip_relocation, arm64_sequoia: "238df327ac156bc2b4c214b9368722a6cdc342a4e00d9e66b9ee56a5417923fb"
     sha256 cellar: :any_skip_relocation, sequoia:       "63941eb9caa1cbf8472e6baafa22241db5418765bfb43bf600bd949c622d3aa1"
   end
+  depends_on macos: :sequoia
 
   resource "release" do
     on_arm do
