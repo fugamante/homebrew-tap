@@ -1,27 +1,21 @@
 class Xshelf < Formula
   desc "Deterministic runtime tooling for LLM-assisted repository work"
   homepage "https://github.com/fugamante/XSHELF"
-  url "https://github.com/fugamante/XSHELF/releases/download/v2026.08.29/SHA256SUMS"
-  sha256 "dc8cfa754c7024ea88d7f9e6c39d2993c5e3672ef71313ac9307f3cfcab9407e"
+  url "https://github.com/fugamante/XSHELF/releases/download/v2026.10.07/SHA256SUMS"
+  sha256 "1b2ff930dd89ea35538ee571189d0bd7b29647c059e525660be609f26326ff9c"
   license "MIT"
-  revision 1
 
-  bottle do
-    root_url "https://ghcr.io/v2/fugamante/tap"
-    sha256 cellar: :any_skip_relocation, arm64_sequoia: "238df327ac156bc2b4c214b9368722a6cdc342a4e00d9e66b9ee56a5417923fb"
-    sha256 cellar: :any_skip_relocation, sequoia:       "63941eb9caa1cbf8472e6baafa22241db5418765bfb43bf600bd949c622d3aa1"
-  end
   depends_on macos: :sequoia
 
   resource "release" do
     on_arm do
-      url "https://github.com/fugamante/XSHELF/releases/download/v2026.08.29/xshelf-2026.08.29-aarch64-apple-darwin.tar.gz"
-      sha256 "8805b084205cbb5641cdd95099d5bffa615ca9d68f80a7823a4277b3279d0a23"
+      url "https://github.com/fugamante/XSHELF/releases/download/v2026.10.07/xshelf-2026.10.07-aarch64-apple-darwin.tar.gz"
+      sha256 "db276dab7662bfbc58ff79968b6c4e9bd3295456d66c858bc93758267ef0b5b1"
     end
 
     on_intel do
-      url "https://github.com/fugamante/XSHELF/releases/download/v2026.08.29/xshelf-2026.08.29-x86_64-apple-darwin.tar.gz"
-      sha256 "86a4539e93d721a25ee959d802010f2c3897b84538237a63f75ae358b21a9e9c"
+      url "https://github.com/fugamante/XSHELF/releases/download/v2026.10.07/xshelf-2026.10.07-x86_64-apple-darwin.tar.gz"
+      sha256 "27af439a84495e6d68e127df5ba1dabaeaebe3593b28497b606abb246fc6686d"
     end
   end
 
@@ -41,7 +35,7 @@ class Xshelf < Formula
   test do
     version_output = shell_output("#{bin}/xshelf version --json")
     assert_match '"contract_version": "version.v1"', version_output
-    assert_match '"version": "2026.08.29"', version_output
+    assert_match '"version": "2026.10.07"', version_output
     assert_predicate bin/"xs", :executable?
     assert_predicate bin/"cx", :executable?
     assert_path_exists man1/"xshelf.1"
