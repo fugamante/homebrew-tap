@@ -245,11 +245,11 @@ jobs:
           HOMEBREW_NO_ANALYTICS=1 HOMEBREW_NO_AUTO_UPDATE=1 \
             "$upgrade_brew/bin/brew" upgrade "$bottle"
           upgraded_inventory="$("$upgrade_brew/bin/brew" list --versions xshelf)"
-          [[ "$upgraded_inventory" == "xshelf 2026.08.29 2026.08.29_1" ]] ||
+          [[ "$upgraded_inventory" == "xshelf 2026.08.29 2026.10.07" ]] ||
             fail "unexpected upgraded xshelf inventory: $upgraded_inventory"
           active_prefix="$("$upgrade_brew/bin/brew" --prefix xshelf)"
           active_cellar="$(cd "$active_prefix" && pwd -P)"
-          [[ "$active_cellar" == "$upgrade_brew/Cellar/xshelf/2026.08.29_1" ]] ||
+          [[ "$active_cellar" == "$upgrade_brew/Cellar/xshelf/2026.10.07" ]] ||
             fail "reviewed xshelf keg is not active: $active_cellar"
           python3 "$tap_path/scripts/verify_bottle.py" \
             --expected-arch "$EXPECTED_ARCH" \
