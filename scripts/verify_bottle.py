@@ -15,22 +15,22 @@ import tempfile
 import urllib.request
 
 
-RELEASE = "https://github.com/fugamante/XSHELF/releases/download/v2026.10.07"
-SOURCE_REVISION = "f3525c08f76d58dd441a19391277a6d2058e1dbc"
-PKG_VERSION = "2026.10.07"
+RELEASE = "https://github.com/fugamante/XSHELF/releases/download/v2026.10.10"
+SOURCE_REVISION = "2d44a8056982c62abce2889fb7902c98ffdaae0d"
+PKG_VERSION = "2026.10.10"
 TARGETS = {
     "arm64": {
-        "archive": "xshelf-2026.10.07-aarch64-apple-darwin.tar.gz",
-        "sha256": "db276dab7662bfbc58ff79968b6c4e9bd3295456d66c858bc93758267ef0b5b1",
-        "notary_sha256": "5b68b3df23452c44d19fd22bee3ed2dc1eff71d72bb21e6c6fe4e906619e3cd5",
-        "cdhash": "0cf438435d3d84760695e2f1bcc595b26951b6fe",
+        "archive": "xshelf-2026.10.10-aarch64-apple-darwin.tar.gz",
+        "sha256": "2a621c9dd3fc932ac380657f0153888c2c8a977a164726c1e0903bcede6e8e5b",
+        "notary_sha256": "d80fde26f79bb06d9f5b73742b87b3f5a1eefe4c3a7991004388ef94db8be498",
+        "cdhash": "12faa81e0f6d8ae490d9101ee3fe99735e244f4c",
         "target": "aarch64-apple-darwin",
     },
     "x86_64": {
-        "archive": "xshelf-2026.10.07-x86_64-apple-darwin.tar.gz",
-        "sha256": "27af439a84495e6d68e127df5ba1dabaeaebe3593b28497b606abb246fc6686d",
-        "notary_sha256": "f69a2a595f7a2b72d3c1e6de1c6d7e4597041346a4944ec0782b135e3e15a719",
-        "cdhash": "7742047c5c5f5605466a324b3ebb402bf24035cf",
+        "archive": "xshelf-2026.10.10-x86_64-apple-darwin.tar.gz",
+        "sha256": "66999b0eac363095b029c76c712eba5737f2f79355133e56493dcff4896cf66c",
+        "notary_sha256": "aba95b5c1dbc3bb94f31d856c3d9e508cb933e126a2f44277ce012af87c7e3b2",
+        "cdhash": "fba18acec26dec8afb2c365d097f520d46214974",
         "target": "x86_64-apple-darwin",
     },
 }
